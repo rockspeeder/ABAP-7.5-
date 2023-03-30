@@ -1,0 +1,111 @@
+*&---------------------------------------------------------------------*
+*& Report ZSYNTAX740_READ_TABLES
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zsyntax740_read_tables.
+
+TYPES : BEGIN OF ty_mara,
+          material_number TYPE mara-matnr,
+          created_date    TYPE mara-ersda,
+          created_by      TYPE mara-ernam,
+          material_text   TYPE makt-maktx,
+          material_type   TYPE makt-maktg,
+        END OF ty_mara.
+
+data : lv_msg TYPE string,
+      lo_exp TYPE REF TO CX_SY_ITAB_LINE_NOT_FOUND.
+
+"FOR Iteration for Single Table
+"FOR is also called Iteration Expression.
+*----------------------------------------------------------------------------------------*
+SELECT * FROM mara INTO TABLE @DATA(lt_mara).
+IF sy-subrc IS INITIAL.
+  SELECT * FROM makt INTO TABLE @DATA(lt_makt).
+ENDIF.
+"Read with index number
+*----------------------------------------------------------------------------------------*
+READ TABLE lt_mara INTO data(ls_mara) INDEX 1.
+write : ls_mara-matnr COLOR 1.
+clear: lo_exp,lv_msg.
+TRY .
+data(lw_mara) = lt_mara[ 1 ].
+write : lw_mara-matnr COLOR 2.
+CATCH CX_SY_ITAB_LINE_NOT_FOUND INTO lo_exp.
+    lv_msg =  lo_exp->if_message~get_text( ).
+ MESSAGE lv_msg TYPE 'I'. . .
+ENDTRY.
+
+"Read with index variable
+*----------------------------------------------------------------------------------------*
+data(lv_idx) = 2.
+READ TABLE lt_mara INTO data(ls_mara1) INDEX lv_idx .
+write : / ls_mara1-matnr COLOR 1.
+clear: lo_exp,lv_msg.
+TRY .
+
+data(lw_mara1) = lt_mara[ lv_idx ].
+write : lw_mara1-matnr COLOR 2.
+
+CATCH  CX_SY_ITAB_LINE_NOT_FOUND INTO lo_exp.
+    lv_msg =  lo_exp->if_message~get_text( ).
+ MESSAGE lv_msg TYPE 'I'. .
+ENDTRY.
+"Read with free key
+*----------------------------------------------------------------------------------------*
+READ TABLE lt_mara INTO data(ls_mara2) with key matnr = '43'.
+write : / ls_mara2-matnr COLOR 1.
+clear: lo_exp,lv_msg.
+TRY .
+
+data(lw_mara2) = lt_mara[ matnr = '000000000000000043' ].
+write :  lw_mara2-matnr COLOR 2.
+
+CATCH  CX_SY_ITAB_LINE_NOT_FOUND INTO lo_exp.
+    lv_msg =  lo_exp->if_message~get_text( ).
+ MESSAGE lv_msg TYPE 'I'.
+ENDTRY.
+"Read with more than one free key
+*----------------------------------------------------------------------------------------*
+READ TABLE lt_mara INTO data(ls_mara3) with key matnr = '000000000000000043'
+                                                ersda = '20221229'.
+write : / ls_mara3-matnr COLOR 1.
+clear: lo_exp,lv_msg.
+TRY .
+
+  data(lw_mara3) = lt_mara[ matnr = '000000000000000043' ersda = '20221229' ].
+  write : lw_mara3-matnr COLOR 2.
+
+CATCH  CX_SY_ITAB_LINE_NOT_FOUND INTO lo_exp.
+    lv_msg =  lo_exp->if_message~get_text( ).
+ MESSAGE lv_msg TYPE 'I'..
+ENDTRY.
+" skip the try-catch using the OPTIONAL keyword.
+*----------------------------------------------------------------------------------------*
+data(lw_mara4) = VALUE #( lt_mara[ matnr = '000000000000000043' ] OPTIONAL ).
+write : / lw_mara4-matnr COLOR 3.
+"A field from the result can be used with – the field name
+*----------------------------------------------------------------------------------------*
+data(ls_matnr) = lt_mara[ matnr = '000000000000000043' ]-matnr .   " Execption to be handled in case no entry exist in table with key
+data(ls_matnr1) = VALUE #( lt_mara[ matnr = '43' ]-matnr OPTIONAL ) .
+data(ls_maktx) = lt_makt[ matnr = ls_matnr ]-maktx. " Execption to be handled in case no entry exist in table with key
+write : / ls_matnr,ls_maktx,ls_matnr1 COLOR 4.
+"Using read entry in if blocks
+*----------------------------------------------------------------------------------------*
+if lt_mara[ matnr = '000000000000000043' ]-mtart  = 'MODE'.
+" Impliment relavent logic
+  lt_mara[ matnr = '000000000000000043' ]-bismt  = lt_mara[ matnr = '000000000000000043' ]-matnr.
+endif.
+write : / lt_mara[ matnr = '000000000000000043' ]-bismt COLOR 5.
+"result of the expression can be assigned to a field symbol
+*----------------------------------------------------------------------------------------*
+ASSIGN  lt_mara[ matnr = '000000000000000043' ]  to FIELD-SYMBOL(<fs_mara>). "Exception to be handled if field symbol not assigned
+if sy-subrc IS INITIAL.
+write : <fs_mara>-matnr COLOR 7.
+endif.
+"Binary search read internal table
+*----------------------------------------------------------------------------------------*
+ data : it_mara TYPE SORTED TABLE OF mara with UNIQUE key matnr .
+  select * from mara INTO TABLE it_mara.
+    data(lw_mara5) = VALUE #( it_mara[ matnr = 'SFGTEST16' ] OPTIONAL ).
+    write : / lw_mara5-matnr COLOR 1.
