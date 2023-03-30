@@ -1,0 +1,47 @@
+REPORT ZSYNTAX_LOOP_GROUP.
+
+select *
+      FROM aufk
+       Into TABLE @data(lt_aufk).
+
+*  cl_demo_output=>display( lt_aufk ).
+
+data(tot_size) = VALUE i( ).
+
+TYPES : BEGIN OF tt_aufk,
+  auart TYPE aufk-auart,
+  ernam TYPE aufk-ernam,
+  bukrs TYPE aufk-bukrs,
+  size TYPE i,
+  index TYPE i,
+  END OF tt_aufk.
+ data: tt_table TYPE STANDARD TABLE OF tt_aufk WITH DEFAULT KEY .
+
+loop at lt_aufk into data(ls_aufk) GROUP BY ( "aufnr = ls_aufk-aufnr
+                                              auart = ls_aufk-auart
+                                              ernam = ls_aufk-ernam
+                                              bukrs = ls_aufk-bukrs
+                                              size = GROUP SIZE
+                                              index = GROUP INDEX
+                                              )
+                                       "ASCENDING
+                                         REFERENCE INTO data(lw_aufk).
+
+tot_size = tot_size + lw_aufk->size.
+
+ write : / "lw_aufk->aufnr,
+           lw_aufk->auart,
+           lw_aufk->ernam,
+           lw_aufk->bukrs,
+           "lw_aufk->aufnr,
+           tot_size,
+           lw_aufk->size,
+           lw_aufk->index.
+APPEND lw_aufk->* to tt_table.
+  ENDLOOP.
+
+  data(lv_msg) =   | 'Total Number of records in internal table is' { tot_size } |.
+  write : / lv_msg COLOR 5.
+
+
+  cl_demo_output=>display( tt_table ).
