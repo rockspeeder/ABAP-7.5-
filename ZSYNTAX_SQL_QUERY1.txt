@@ -1,0 +1,88 @@
+*&---------------------------------------------------------------------*
+*& Report ZSYNTAX_SQL_QUERY1
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zsyntax_sql_query1.
+"we could use program variables in the SQL query as if SQL is part of ABAP itself.
+"in ABAP 7.40 ‘@’ was introduced to explicitly mention that anything that follows @ is a program variable.
+"This made it possible for the Open SQL parser to distinguish clearly between operands that are evaluated by the database
+"and ABAP variables whose contents have to be passed to the database.
+"Host Variable (@), comma-separated list, and inline declaration
+
+SELECT matnr AS material,
+       mtart AS material_type,
+       matkl AS material_group
+      FROM mara
+      INTO TABLE @DATA(lt_mara).
+"The select field list is now separated by a comma, all variables are preceded by @ and a table is declared inline.
+"INTO clause is moved to the end of the statement as this is the new home for INTO clause.
+"Most of the queries will still work but some of the queries containing arithmetic operations will ask you to move the clause to the end.
+
+*  data(lo_out) = cl_demo_output=>new( )->write_data( lt_mara )->display( ).
+
+" Literals as additional columns
+SELECT matnr AS material,
+       spras AS language,
+       maktx AS material_text,
+       'colour' AS line_colour  "Additional column
+        FROM makt AS dtb INNER JOIN @lt_mara AS itb
+       ON dtb~matnr = itb~material
+        INTO TABLE @DATA(lt_makt).
+*  data(lo_out) = cl_demo_output=>new( )->write_data( lt_makt )->display( ).
+
+"Arithmetic Operations
+SELECT carrid,
+       connid,
+       fltime + 120 AS total_time,
+       DIVISION( fltime, 60, 2 ) AS fltime
+ FROM spfli
+ INTO TABLE @DATA(lt_result).
+* data(lo_out) = cl_demo_output=>new( )->write_data( lt_result )->display( ).
+  data : lt_mara_range type RANGE OF matnr.
+  lt_mara_range = VALUE #( sign = 'I' option = 'EQ'
+                          ( low = '000000000000000126')
+                          ( low = '000000000000000128')
+                          ( low = '000000000000000153')
+                          ).
+select matnr
+       FROM mara
+       INTO TABLE @data(lt_mara_vbap)
+       WHERE matnr in @lt_mara_range.
+
+  select vbeln as order,
+         posnr as item,
+         netwr as net_price,
+        CASE
+          WHEN netwr GT 25000 THEN 'High value order'
+          WHEN netwr LE 10000 THEN 'Low value order'
+         END AS order_value
+         FROM vbap as ivbap INNER JOIN @lt_mara_vbap as imara
+         ON ivbap~matnr eq imara~matnr
+         ORDER BY vbeln
+         INTO TABLE @data(lt_vbap).
+ data(lo_out) = cl_demo_output=>new( )->write_data( lt_vbap )->display( ).
+
+ data : it_vbap like lt_vbap.
+it_vbap = VALUE #( FOR ls_vbap in lt_vbap
+                   (
+                     order = ls_vbap-order
+                     item = ls_vbap-item
+                     net_price = ls_vbap-net_price
+                     order_value = REDUCE #( INIT val type netwr
+                                             FOR wa in lt_vbap
+                                             NEXT val = val + wa-net_price
+                                           )
+                   )
+                   ).
+
+"Case Statements – Simple case
+select matnr as material,
+     CASE mtart
+      WHEN 'HALB' THEN '1'
+      WHEN 'VERP'  THEN '2'
+      ELSE '2'
+     END AS material_group
+     FROM mara
+   INTO TABLE @data(lt_mtart).
+* data(lo_out) = cl_demo_output=>new( )->write_data( lt_mtart )->display( ).
